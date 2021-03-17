@@ -1,4 +1,4 @@
-# Home Alarm System
+# Home Alarm System (IN PROGRESS) 
 Arduino based alarm system
 
 ## Hardware used 
