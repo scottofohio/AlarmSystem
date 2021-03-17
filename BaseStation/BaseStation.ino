@@ -67,9 +67,6 @@ void setup() {
   generateTriangle(AMPLITUDE, triangle, WAV_SIZE);
   generateSquare(AMPLITUDE, square, WAV_SIZE);
 
-  // set the LED pin mode
-
-  
   serverSetup();     
   server.begin();    // start the web server on port 80
   printWiFiStatus(); // you're connected now, so print out the status 
@@ -147,14 +144,13 @@ void loop() {
         if(armedStatus == true) { 
           // Is the alarm timer on and is it greater than or equal to off_time
           if ((alarmState) && (millis()>=off_time))  {
-            
             alarmState = false;
             } else if (!alarmState)  { 
               if(currentLine.endsWith("GET /door-1/open")) {
                 digitalWrite(5, HIGH);
                 alarmState = true;
                 off_time = millis() + 10000;
-                if(currentLine.endsWith("GET /?keycode=5698")) { 
+                if(currentLine.endsWith("GET /?keycode=3045")) { 
                   alarmState = false;
                   armedStatus = false;               
                 } else {
