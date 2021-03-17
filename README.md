@@ -23,3 +23,40 @@ All of these can be installed via the Arduino IDE.
 - [Adafruit GFX](https://github.com/adafruit/Adafruit-GFX-Library)
 - [Adafruit SSD1306](https://github.com/adafruit/Adafruit_SSD1306)
 - [SD](https://www.arduino.cc/en/reference/SD) - This is built into the Arduino IDE so it can just be included
+
+
+## Pin Configurations 
+
+### MKR1000 
+
+#### LED 
+- Pin 5  
+- 1k resistor to ground
+
+#### OLED Dislay
+- VCC to 5v
+- GND to GND 
+- SCL to SCL 
+- SDA to SDA 
+
+#### i2s Amplifier 
+- VIN to 5v
+- GND to GND
+- LRCLK to PIN 3 
+- BCLK to PIN 2 
+- DIN to A6
+
+## MicroSD card
+- CLK to SCK(9) 
+- DO to MISO(10)
+- DI to MOSI(8)
+- CS to PIN 7 (this can be any pin)
+
+### NANO 33 IOT
+#### LED 
+-  PIN D13 
+-  1k resistor to GND
+
+#### MAgnetic Reed Switch 
+- Pin ~D2 
+- 10k resistor to ground 
