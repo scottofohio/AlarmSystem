@@ -1,11 +1,11 @@
-
 #include <SPI.h>
 #include <WiFi101.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <millisDelay.h>
-
+#include <SPI.h>
+#include <SD.h>
 #include "audio.h"
 #include "arduino_secrets.h"
 
@@ -28,6 +28,12 @@ boolean doorChime = true;
 boolean armedStatus = false;
 unsigned long off_time;
 boolean alarmState =false;
+const int chipSelect = 7;
+
+Sd2Card card;
+SdVolume volume;
+File indexFile;
+
 // Setup 
 void setup() {
   Serial.begin(9600);
@@ -38,9 +44,6 @@ void setup() {
     for (;;)
       ; // Don't proceed, loop forever
   }
-
-  
-
   
   display.display();
   delay(1000);
@@ -65,33 +68,26 @@ void setup() {
   generateSquare(AMPLITUDE, square, WAV_SIZE);
 
   // set the LED pin mode
-  pinMode(5, OUTPUT);
 
-  // check for the presence of the shield:
-  if (WiFi.status() == WL_NO_SHIELD) {
-    Serial.println("WiFi shield not present");
-    while (true)
-      ; // don't continue
-  }
-
-  // attempt to connect to WiFi network:
-  while (status != WL_CONNECTED) {
-
-    Serial.print("Attempting to connect to Network named: ");
-    Serial.println(ssid); // print the network name (SSID);
-    alertText("Connecting to: ",ssid); 
-    
-    // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
-    status = WiFi.begin(ssid, pass);
-
-    // wait 10 seconds for connection:
-    delay(10000);
-  }
-
+  
+  serverSetup();     
   server.begin();    // start the web server on port 80
   printWiFiStatus(); // you're connected now, so print out the status 
-  
+
+  /*
+    SD Card Reader Initializtion. 
+    I am most certain this needs to happen after the server begins.
+    Make sure your pin matches the output pin you are using. 
+    I am using pin 5 on the Arduino MKR1000  
+  */
+  pinMode(5, OUTPUT);
+  if (!SD.begin(5)) {
+    Serial.println("initialization failed!");
+    return;
+  }
+  Serial.println("initialization done.");
 }
+  
 
 void loop() {
    // listen for incoming clients
@@ -101,7 +97,7 @@ void loop() {
   if (client) { 
 
     // print a message out the serial port
-    Serial.println("new client"); 
+    Serial.println("new client");   
     
     // make a String to hold incoming data from the client
     String currentLine = ""; 
@@ -120,15 +116,27 @@ void loop() {
           if (currentLine.length() == 0) {
             // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
             // and a content-type so the client knows what's coming, then a blank line:
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-type:text/html");
+            client.println(F("HTTP/1.1 200 OK"));
+            client.print(F("Content-Type: "));
+            client.println("text/html");
+            client.println(F("Connection: close"));
             client.println();
-            client.print("<h1>enter code</h1>");
-            client.print("<form action='http://192.168.0.23/' method='GET' >");
-            client.print("<input type='number' name='keycode' maxlength='6' size='6' />");
-            client.print("<intput type='submit' value='Submit' /></form><br>");
             client.println();
-            
+            /*
+              load the keypad file to the webserver. 
+              This is going to be slow so make sure you compress html
+              and you need to include all scripts and styles in the html file or
+              host them externally. 
+            */
+            indexFile = SD.open("keypad.htm");
+              if (indexFile) {
+              while(indexFile.available()) {
+                client.write(indexFile.read());
+              }
+              indexFile.close();
+            } else {
+              Serial.println("error opening index.htm");
+            }
             break; // break out of the while loop:
           }  else { // if you got a newline, then clear currentLine:
             currentLine = "";
@@ -140,24 +148,24 @@ void loop() {
           // Is the alarm timer on and is it greater than or equal to off_time
           if ((alarmState) && (millis()>=off_time))  {
             
-            digitalWrite(5,LOW);
             alarmState = false;
             } else if (!alarmState)  { 
               if(currentLine.endsWith("GET /door-1/open")) {
                 digitalWrite(5, HIGH);
                 alarmState = true;
                 off_time = millis() + 10000;
-                if(currentLine.endsWith("GET /keycode/disable") { 
+                if(currentLine.endsWith("GET /?keycode=5698")) { 
                   alarmState = false;
                   armedStatus = false;               
                 } else {
-                  // Set Alarm Here                                   
+                  Serial.println("Alarm A ");                       
                 } 
              } 
           }
         } else {
           // Door Open Alarm Status Off 
           if (currentLine.endsWith("GET /door-1/open"))  {
+            digitalWrite(5, HIGH);
             alertText("Door 1", "Open");
             if(doorChime == true) { 
                audioPlay();
@@ -175,42 +183,3 @@ void loop() {
     client.stop(); // close the connection:   
   }
 } // end void loop; 
-void alertText(char *lineOne, char *lineTwo) {
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(10, 20);
-  display.println(F(lineOne));
-  display.setCursor(10, 40);
-  display.println(F(lineTwo));
-  display.display();
-}
-
-void audioPlay() { 
-  for (int i=0; i<2; ++i) {
-    // Play the note for a quarter of a second.
-    playWave(triangle, WAV_SIZE, scale[i], 0.15);
-    // Pause for a tenth of a second between notes.
-    delay(100);
-  }
- doorChime = false;   
-}
-
-void printWiFiStatus() {
-  
-  // print the SSID of the network you're attached to:
-  Serial.print("SSID: ");
-  Serial.println(WiFi.SSID());
- 
-  // print your WiFi shield's IP address:
-  IPAddress ip = WiFi.localIP();
-  Serial.print("IP Address: ");
-  Serial.println(ip);
-
-  // print the received signal strength:
-  long rssi = WiFi.RSSI();
-  Serial.print("signal strength (RSSI):");
-  Serial.print(rssi);
-  Serial.println(" dBm");
-  
-}
