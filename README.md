@@ -7,6 +7,7 @@ Arduino based alarm system
 - [2 color OLED Display](https://www.amazon.com/UCTRONICS-SSD1306-Self-Luminous-Display-Raspberry/dp/B072Q2X2LL/ref=sr_1_7) used for base station display(any i2c oled display will work) 
 - [NTE Magnetic Alarm Reed](https://www.ntepartsdirect.com/ENG/PRODUCT/54-630) used for door sensor(any reed alarm switch will work)
 - [Adafruit I2S 3W Class D Amplifier Breakout](https://www.adafruit.com/product/3006) 
+- [Adafruit MicroSD card breakout board+ ](https://www.adafruit.com/product/254)
 - A Speaker. Check the amp specifications and get a speaker to match that. 
 - LEDs 
 - 10k resistor used for the Alarm Reed Ground 
@@ -21,3 +22,4 @@ All of these can be installed via the Arduino IDE.
 - [Wire](https://www.arduino.cc/en/reference/wire)
 - [Adafruit GFX](https://github.com/adafruit/Adafruit-GFX-Library)
 - [Adafruit SSD1306](https://github.com/adafruit/Adafruit_SSD1306)
+- [SD](https://www.arduino.cc/en/reference/SD) - This is built into the Arduino IDE so it can just be included
