@@ -1,0 +1,31 @@
+*, *:before, *:after {
+  box-sizing: border-box; }
+
+.kp {
+  max-width: 360px;
+  margin-top: 40px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap; }
+  .kp #key {
+    padding: 20px;
+    font-size: 28px;
+    width: 100%;
+    border: solid 2px #000; }
+    .kp #key.error {
+      border-color: red;
+      color: red;
+      font-weight: bold; }
+  .kp .ent {
+    height: 120px;
+    width: 120px;
+    font-size: 28px;
+    background-color: #f7f7f7;
+    border: solid 2px #000; }
+  .kp #snd {
+    font-size: 24px;
+    width: 360px;
+    background-color: #f7f7f7;
+    border: solid 2px #000; }
+
+/*# sourceMappingURL=style.css.map */
