@@ -23,7 +23,7 @@
 
 float mary[] = { E4_HZ, D4_HZ, C4_HZ, D4_HZ, E4_HZ, E4_HZ, E4_HZ, D4_HZ, D4_HZ, D4_HZ, E4_HZ, E4_HZ, E4_HZ, E4_HZ, D4_HZ, C4_HZ, D4_HZ, E4_HZ, E4_HZ, E4_HZ, D4_HZ, D4_HZ, E4_HZ, D4_HZ, C4_HZ };
 float scale[] = { F4_HZ, D4_HZ };
-float alarm[] = {B4_HZ, A4_HZ}; 
+
 
 int32_t sine[WAV_SIZE]     = {0};
 int32_t sawtooth[WAV_SIZE] = {0};

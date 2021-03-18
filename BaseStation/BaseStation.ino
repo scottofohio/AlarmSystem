@@ -26,9 +26,12 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 boolean doorChime = true;
 boolean armedStatus = false;
-unsigned long off_time;
-boolean alarmState =false;
+boolean soundAlarm = false;
+boolean resetOpenDoor = false;
 const int chipSelect = 7;
+
+unsigned long delayStart = 0; // the time the delay started
+bool delayRunning = false; // true if still waiting for delay to finish
 
 Sd2Card card;
 SdVolume volume;
@@ -44,7 +47,7 @@ void setup() {
     for (;;)
       ; // Don't proceed, loop forever
   }
-  
+
   display.display();
   delay(1000);
   display.clearDisplay();
@@ -71,18 +74,30 @@ void setup() {
   server.begin();    // start the web server on port 80
   printWiFiStatus(); // you're connected now, so print out the status 
 
+  //  LED BLUE
+  pinMode(5, OUTPUT);
+
+    //  LED yellow
+  pinMode(A1, OUTPUT);
+
+      //  LED red
+  pinMode(A2, OUTPUT);
+
   /*
     SD Card Reader Initializtion. 
     I am most certain this needs to happen after the server begins.
     Make sure your pin matches the output pin you are using. 
     I am using pin 5 on the Arduino MKR1000  
   */
-  pinMode(5, OUTPUT);
-  if (!SD.begin(5)) {
+  pinMode(7, OUTPUT);
+  if (!SD.begin(7)) {
     Serial.println("initialization failed!");
     return;
   }
   Serial.println("initialization done.");
+
+  delayStart = millis();   // start delay
+  delayRunning = true; // not finished yet
 }
   
 
@@ -93,9 +108,6 @@ void loop() {
   // if you get a client,
   if (client) { 
 
-    // print a message out the serial port
-    Serial.println("new client");   
-    
     // make a String to hold incoming data from the client
     String currentLine = ""; 
     
@@ -132,7 +144,7 @@ void loop() {
               }
               indexFile.close();
             } else {
-              Serial.println("error opening index.htm");
+              Serial.println("error opening keypad.htm");
             }
             break; // break out of the while loop:
           }  else { // if you got a newline, then clear currentLine:
@@ -142,35 +154,49 @@ void loop() {
           currentLine += c; // add it to the end of the currentLine
         }
         if(armedStatus == true) { 
-          // Is the alarm timer on and is it greater than or equal to off_time
-          if ((alarmState) && (millis()>=off_time))  {
-            alarmState = false;
-            } else if (!alarmState)  { 
-              if(currentLine.endsWith("GET /door-1/open")) {
-                digitalWrite(5, HIGH);
-                alarmState = true;
-                off_time = millis() + 10000;
-                if(currentLine.endsWith("GET /?keycode=3045")) { 
-                  alarmState = false;
-                  armedStatus = false;               
-                } else {
-                  Serial.println("Alarm A ");                       
-                } 
-             } 
+
+          if(soundAlarm == true) {
+            alertText("ALARM", "ALARM", 2);
+            doorAlert(soundAlarm);
+           }
+           
+          if (currentLine.endsWith("GET /door-1/open"))  {
+           
+            Serial.println(" Alarm Activated ");
+            soundAlarm = true;     
           }
+            
+          if(currentLine.endsWith("GET /?alarm-toggle=false")) {
+            
+            alertText("Alarm Off", "", 2);;
+            armedStatus = false;
+            soundAlarm = false; 
+          }   
+             
         } else {
+
+           if(currentLine.endsWith("GET /?alarm-toggle=true")) {
+            alertText("Alarm Set", "", 2);
+            
+            armedStatus = true;    
+           } else if(currentLine.endsWith("GET /?alarm-toggle=false")) {
+            alertText("Alarm ", "Off", 2);;
+          
+            armedStatus = false; 
+           }  
+          
           // Door Open Alarm Status Off 
           if (currentLine.endsWith("GET /door-1/open"))  {
             digitalWrite(5, HIGH);
-            alertText("Door 1", "Open");
+            
             if(doorChime == true) { 
-               audioPlay();
+               doorAlert(soundAlarm);
             }
           }
           // Door Closed Alarm Status Off 
           if (currentLine.endsWith("GET /door-1/closed")) {
             digitalWrite(5, LOW);
-            alertText("Door 1", "Closed");
+            
             doorChime = true;
           }
         } 
