@@ -2,3 +2,4 @@
 .vscode
 arduino_secrets.h
 .sass_cache
+WebInterface/.sass-cache/
