@@ -3,10 +3,8 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <millisDelay.h>
+#include "Adafruit_ZeroI2S.h"
 #include <SPI.h>
-#include <SD.h>
-#include "audio.h"
 #include "arduino_secrets.h"
 
 ///////please enter your sensitive data in the Secret tab/arduino_secrets.h
@@ -27,15 +25,18 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 boolean doorChime = true;
 boolean armedStatus = false;
 boolean soundAlarm = false;
-boolean resetOpenDoor = false;
-const int chipSelect = 7;
+boolean resetOpenDoor = false;  
 
-unsigned long delayStart = 0; // the time the delay started
-bool delayRunning = false; // true if still waiting for delay to finish
+#define SAMPLERATE_HZ 44100  
+#define AMPLITUDE     ((1<<29)-1) 
+#define WAV_SIZE      256   
+#define D4_HZ      293.66
+#define F4_HZ      349.23
 
-Sd2Card card;
-SdVolume volume;
-File indexFile;
+float scale[] = { F4_HZ, D4_HZ };
+int32_t triangle[WAV_SIZE] = {0};
+
+Adafruit_ZeroI2S i2s;
 
 // Setup 
 void setup() {
@@ -62,42 +63,25 @@ void setup() {
     Serial.println("Failed to initialize I2S transmitter!");
     while (1);
   }
+  
+  //  Aduio Setup 
   i2s.enableTx();
-
-  // Generate waveforms.
-  generateSine(AMPLITUDE, sine, WAV_SIZE);
-  generateSawtooth(AMPLITUDE, sawtooth, WAV_SIZE);
   generateTriangle(AMPLITUDE, triangle, WAV_SIZE);
-  generateSquare(AMPLITUDE, square, WAV_SIZE);
-
-  serverSetup();     
-  server.begin();    // start the web server on port 80
-  printWiFiStatus(); // you're connected now, so print out the status 
+  
+  serverSetup();
+  
+  // start the web server on port 80     
+  server.begin();   
 
   //  LED BLUE
   pinMode(5, OUTPUT);
 
-    //  LED yellow
+  //  LED green
   pinMode(A1, OUTPUT);
 
-      //  LED red
+  //  LED red
   pinMode(A2, OUTPUT);
 
-  /*
-    SD Card Reader Initializtion. 
-    I am most certain this needs to happen after the server begins.
-    Make sure your pin matches the output pin you are using. 
-    I am using pin 5 on the Arduino MKR1000  
-  */
-  pinMode(7, OUTPUT);
-  if (!SD.begin(7)) {
-    Serial.println("initialization failed!");
-    return;
-  }
-  Serial.println("initialization done.");
-
-  delayStart = millis();   // start delay
-  delayRunning = true; // not finished yet
 }
   
 
@@ -126,77 +110,70 @@ void loop() {
             // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
             // and a content-type so the client knows what's coming, then a blank line:
             client.println(F("HTTP/1.1 200 OK"));
-            client.print(F("Content-Type: "));
-            client.println("text/html");
-            client.println(F("Connection: close"));
+            client.println("Content-type:text/html");
+        
             client.println();
+            client.print("<!doctype html><html lang='e'><head><meta charset='utf-8'><title>Keypad</title></head>");
+            client.print("<form action='/'><input type='hidden' id='key' value='true' name='alarm-toggle'>");
+            client.print("<button style='padding: 20px; display: block; background-color: #fff; border: 5px solid red; width: 100%; margin-bottom: 20px;'>ALARM ON</button></form>");
+            client.print("<form action='/'><input type='hidden' id='key' value='false' name='alarm-toggle'>");
+            client.print("<button style='padding: 20px; display: block; background-color: #fff; border: 5px solid blue; width: 100%; margin-bottom: 20px;'>ALARM OFF</button></form>");
+            client.print("</body></html>");
+
             client.println();
-            /*
-              load the keypad file to the webserver. 
-              This is going to be slow so make sure you compress html
-              and you need to include all scripts and styles in the html file or
-              host them externally. 
-            */
-            indexFile = SD.open("keypad.htm");
-              if (indexFile) {
-              while(indexFile.available()) {
-                client.write(indexFile.read());
-              }
-              indexFile.close();
-            } else {
-              Serial.println("error opening keypad.htm");
-            }
+  
             break; // break out of the while loop:
-          }  else { // if you got a newline, then clear currentLine:
+          
+          } else { // if you got a newline, then clear currentLine:
             currentLine = "";
           }
+        
         } else if (c != '\r')  { // if you got anything else but a carriage return character,
           currentLine += c; // add it to the end of the currentLine
         }
+        
         if(armedStatus == true) { 
-
+          digitalWrite(A2, HIGH);
+          digitalWrite(A1, LOW);
           if(soundAlarm == true) {
             alertText("ALARM", "ALARM", 2);
             doorAlert(soundAlarm);
            }
            
-          if (currentLine.endsWith("GET /door-1/open"))  {
-           
-            Serial.println(" Alarm Activated ");
+          if (currentLine.endsWith("GET /door-1/open") 
+           || currentLine.endsWith("GET /door-2/open"))  {
             soundAlarm = true;     
           }
             
           if(currentLine.endsWith("GET /?alarm-toggle=false")) {
-            
             alertText("Alarm Off", "", 2);;
             armedStatus = false;
             soundAlarm = false; 
           }   
              
         } else {
-
+          digitalWrite(A1, HIGH);
+          digitalWrite(A2, LOW);
            if(currentLine.endsWith("GET /?alarm-toggle=true")) {
             alertText("Alarm Set", "", 2);
-            
             armedStatus = true;    
            } else if(currentLine.endsWith("GET /?alarm-toggle=false")) {
             alertText("Alarm ", "Off", 2);;
-          
             armedStatus = false; 
            }  
           
           // Door Open Alarm Status Off 
-          if (currentLine.endsWith("GET /door-1/open"))  {
+          if (currentLine.endsWith("GET /door-1/open")
+          || currentLine.endsWith("GET /door-2/open"))  {
             digitalWrite(5, HIGH);
-            
             if(doorChime == true) { 
                doorAlert(soundAlarm);
             }
-          }
+          } 
           // Door Closed Alarm Status Off 
-          if (currentLine.endsWith("GET /door-1/closed")) {
+          if (currentLine.endsWith("GET /door-1/closed")
+          || currentLine.endsWith("GET /door-2/closed")) {
             digitalWrite(5, LOW);
-            
             doorChime = true;
           }
         } 
