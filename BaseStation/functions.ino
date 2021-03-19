@@ -1,46 +1,22 @@
-
-void sdSetup() {
-  
- Serial.print("\nInitializing SD card...");
-
-  // we'll use the initialization code from the utility libraries
-  // since we're just testing if the card is working!
-  if (!card.init(SPI_HALF_SPEED, chipSelect)) {
-    Serial.println("initialization failed. Things to check:");
-    Serial.println("* is a card inserted?");
-    Serial.println("* is your wiring correct?");
-    Serial.println("* did you change the chipSelect pin to match your shield or module?");
-    while (1);
-  } else {
-    Serial.println("Wiring is correct and a card is present.");
-  }
-  
-}
-
 void printWiFiStatus() {
-  
+  //  use this for debugging wifi
   // print the SSID of the network you're attached to:
   Serial.print("SSID: ");
   Serial.println(WiFi.SSID());
-  
   
   // print your WiFi shield's IP address:
   IPAddress ip = WiFi.localIP();
   Serial.print("IP Address: ");
   Serial.println(ip);
   
-  
-  // print the received signal strength:
+   // print the received signal strength:
   long rssi = WiFi.RSSI();
   Serial.print("signal strength (RSSI):");
   Serial.print(rssi);
-  Serial.println(" dBm");
-  
+  Serial.println(" dBm"); 
 }
 
 void alertText(char *lineOne, char *lineTwo, int fontSize) {
-  bool lineHeight; 
-  
   display.clearDisplay();
   display.setTextSize(fontSize);
   display.setTextColor(SSD1306_WHITE);
@@ -109,13 +85,39 @@ void serverSetup() {
     // wait 10 seconds for connection:
     delay(10000);
     alertText("connected ", "Alarm ready to set", 1);
-    
+
   }
 }
 
-void disableAlarm() {
-  alertText("Alarm", "Disabled", 2);
-  Serial.println("Alarm disabled");
-  armedStatus = false;
-  soundAlarm = false;           
+void generateTriangle(int32_t amplitude, int32_t* buffer, uint16_t length) {
+  // Generate a triangle wave signal with the provided amplitude and store it in
+  // the provided buffer of size length.
+  float delta = float(amplitude)/float(length);
+  for (int i=0; i<length/2; ++i) {
+    buffer[i] = -(amplitude/2)+delta*i;
+  }
+    for (int i=length/2; i<length; ++i) {
+    buffer[i] = (amplitude/2)-delta*(i-length/2);
+  }
+}
+
+void playWave(int32_t* buffer, uint16_t length, float frequency, float seconds) {
+  // Play back the provided waveform buffer for the specified
+  // amount of seconds.
+  // First calculate how many samples need to play back to run
+  // for the desired amount of seconds.
+  uint32_t iterations = seconds*SAMPLERATE_HZ;
+  // Then calculate the 'speed' at which we move through the wave
+  // buffer based on the frequency of the tone being played.
+  float delta = (frequency*length)/float(SAMPLERATE_HZ);
+  // Now loop through all the samples and play them, calculating the
+  // position within the wave buffer for each moment in time.
+  for (uint32_t i=0; i<iterations; ++i) {
+    uint16_t pos = uint32_t(i*delta) % length;
+    int32_t sample = buffer[pos];
+    // Duplicate the sample so it's sent to both the left and right channel.
+    // It appears the order is right channel, left channel if you want to write
+    // stereo sound.
+    i2s.write(sample, sample);
+  }
 }
